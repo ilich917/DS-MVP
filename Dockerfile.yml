@@ -1,0 +1,123 @@
+FROM nvidia/cuda:8.0-cudnn5-devel
+
+# Supress warnings about missing front-end. As recommended at:
+# http://stackoverflow.com/questions/22466255/is-it-possibe-to-answer-dialog-questions-when-installing-under-docker
+ARG DEBIAN_FRONTEND=noninteractive
+
+# Install some dependencies
+RUN apt-get update && \
+    apt-get install -y \
+      apt-utils \
+      git \
+      curl \
+      unzip \
+      openssh-client \
+      wget \
+      build-essential \
+      cmake \
+      libboost-all-dev \
+      libffi-dev \
+      libfreetype6-dev \
+      libhdf5-dev \
+      libjpeg8-dev \
+      liblcms2-dev \
+      libopenblas-dev \
+      liblapack-dev \
+      libpng12-dev \
+      libssl-dev \
+      libtiff5-dev \
+      libwebp-dev \
+      libzmq3-dev \
+      nano \
+      pkg-config \
+      libavcodec-dev \
+      libavformat-dev \
+      libswscale-dev \
+      libtheora-dev \
+      libvorbis-dev \
+      libxvidcore-dev \
+      libx264-dev \
+      yasm \
+      libopencore-amrnb-dev \
+      libopencore-amrwb-dev \
+      libv4l-dev \
+      libxine2-dev \
+      libtbb-dev \
+      libeigen3-dev \
+      python3.5 \
+      python3.5-dev \
+      python3-pip \
+      python3-tk \
+      zlib1g-dev \
+      libprotobuf-dev \
+      libleveldb-dev \
+      libsnappy-dev \
+      libhdf5-serial-dev \
+      protobuf-compiler \
+      liblmdb-dev \
+      libgoogle-glog-dev \
+      && \
+  apt-get clean && \
+  apt-get autoremove && \
+  rm -rf /var/lib/apt/lists/*
+
+
+# python dependencies
+RUN apt-get update && \
+    apt-get install -y python-pip && \
+    pip install --no-cache-dir --upgrade Cython numpy python-dateutil && \
+    apt-get clean && \
+    apt-get autoremove && \
+    rm -rf /var/lib/apt/lists/*
+
+# alphapose deps
+RUN cd /root && \
+    git clone --depth=1 https://github.com/MVIG-SJTU/AlphaPose.git && \
+    cd AlphaPose/human-detection/lib/ && \
+    make clean && \
+    make && \
+    cd newnms/ && \
+    make
+
+# Tensorflow 1.2.1 - GPU
+RUN pip install --no-cache-dir --upgrade \
+    "https://storage.googleapis.com/tensorflow/linux/gpu/tensorflow_gpu-1.2.1-cp27-none-linux_x86_64.whl"
+
+# torch
+RUN cd /root && \
+    git clone https://github.com/torch/distro.git /root/torch --recursive && \
+    cd /root/torch && \
+    sed -i 's/sudo\ //' install-deps && \
+    apt-get update && \
+    bash install-deps && \
+    ./install.sh -b && \
+    apt-get install -y python-tk && \
+    apt-get clean && \
+    apt-get autoremove && \
+    rm -rf /var/lib/apt/lists/*
+
+# get the exports (had to manually stop build here and read the below file)
+# i'm sure there is a better and more automated way
+# file: `cat /root/torch/install/bin/torch-activate`
+ENV LUA_PATH='/root/.luarocks/share/lua/5.1/?.lua;/root/.luarocks/share/lua/5.1/?/init.lua;/root/torch/install/share/lua/5.1/?.lua;/root/torch/install/share/lua/5.1/?/init.lua;./?.lua;/root/torch/install/share/luajit-2.1.0-beta1/?.lua;/usr/local/share/lua/5.1/?.lua;/usr/local/share/lua/5.1/?/init.lua' \
+    LUA_CPATH='/root/.luarocks/lib/lua/5.1/?.so;/root/torch/install/lib/lua/5.1/?.so;./?.so;/usr/local/lib/lua/5.1/?.so;/usr/local/lib/lua/5.1/loadall.so' \
+    PATH="/root/torch/install/bin:$PATH" \
+    LD_LIBRARY_PATH="/root/torch/install/lib:$LD_LIBRARY_PATH" \
+    DYLD_LIBRARY_PATH="/root/torch/install/lib:$DYLD_LIBRARY_PATH" \
+    LUA_CPATH="/root/torch/install/lib/?.so;$LUA_CPATH"
+
+# finish up alphapose
+RUN luarocks install hdf5 && \
+    cd /root/AlphaPose && \
+    chmod +x install.sh && \
+    ./install.sh
+
+# Common libraries
+RUN pip --no-cache-dir install \
+    Pillow scipy sklearn scikit-image pandas matplotlib requests pika h5py
+
+WORKDIR "/root/AlphaPose"
+
+# example
+# docker run --rm -v /src/path:/root/AlphaPose/images -v /output/path:/root/AlphaPose/output [imagename]
+CMD ["./run.sh", "--indir", "./images", "--outdir", "./output", "--vis"] 
