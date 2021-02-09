@@ -1,5 +1,11 @@
 import os
-from moviepy.video.VideoClip import VideoClip
+"""
+Antes de correr este fichero se debe crear y activar un env en conda con los siguientes requerimientos: python 3.9, moviepy.py
+Además, debe descargarse openpose
+Por último, se deben cambiar la ruta de OpenPoseDemo.exe.
+"""
+
+from moviepy.video.VideoClip import VideoClipos
 from moviepy.video.io.VideoFileClip import VideoFileClip
 
 from moviepy.video.fx.resize import resize
@@ -28,4 +34,4 @@ for sub in os.listdir(dataset_path):
             print("executing ...", command)
             os.system(command)
 
-# TENGO QUE VOLVER A GENERAR LOS VIDEOS. PODRÍA HACER RESIZE AL ARCHIVO ORIGINAL...
+# TENGO QUE VOLVER A GENERAR LOS VIDEOS. PODRÍA HACER RESIZE AL ARCHIVO ORIGINAL..."""
